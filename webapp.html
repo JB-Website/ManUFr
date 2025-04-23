@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pong Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b1e3f;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      color: #4da6ff;
+      margin-top: 20px;
+    }
+
+    #how-to-play {
+      margin-top: 10px;
+      font-size: 16px;
+      color: #cce6ff;
+    }
+
+    canvas {
+      display: none;
+      margin: 20px auto;
+      background: #001f3f;
+      border: 2px solid #4da6ff;
+    }
+
+    #menu {
+      margin-top: 30px;
+    }
+
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      background: #4da6ff;
+      color: #001f3f;
+      cursor: pointer;
+    }
+
+    #scoreboard, #winner {
+      margin: 20px;
+      font-size: 24px;
+      color: #cce6ff;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Pong Game</h1>
+  <div id="how-to-play">
+    Move your mouse up and down to control the paddle.<br>
+    First to 5 points wins! Choose a difficulty to begin.
+  </div>
+
+  <div id="menu">
+    <p>Select Difficulty:</p>
+    <button onclick="startGame('easy')">Easy</button>
+    <button onclick="startGame('medium')">Medium</button>
+    <button onclick="startGame('hard')">Hard</button>
+  </div>
+
+  <canvas id="pong" width="600" height="400"></canvas>
+  <div id="scoreboard"></div>
+  <div id="winner"></div>
+
+  <script>
+    const canvas = document.getElementById("pong");
+    const ctx = canvas.getContext("2d");
+    const scoreboard = document.getElementById("scoreboard");
+    const winnerDiv = document.getElementById("winner");
+
+    const paddleWidth = 10, paddleHeight = 100;
+    const winningScore = 5;
+
+    let player, computer, ball, difficultyMultiplier, gameInterval;
+
+    function initGame(difficulty) {
+      const aiLevels = {
+        easy: 0.03,
+        medium: 0.07,
+        hard: 0.12
+      };
+      difficultyMultiplier = aiLevels[difficulty];
+
+      player = { x: 0, y: canvas.height/2 - paddleHeight/2, score: 0 };
+      computer = { x: canvas.width - paddleWidth, y: canvas.height/2 - paddleHeight/2, score: 0 };
+      ball = {
+        x: canvas.width/2,
+        y: canvas.height/2,
+        radius: 8,
+        speed: 5,
+        velocityX: 5,
+        velocityY: 5
+      };
+
+      scoreboard.textContent = `Player: 0 | Computer: 0`;
+      winnerDiv.textContent = "";
+      canvas.style.display = "block";
+    }
+
+    function drawRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    function drawCircle(x, y, r, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI*2, false);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawText(text, x, y) {
+      ctx.fillStyle = "#cce6ff";
+      ctx.font = "32px Arial";
+      ctx.fillText(text, x, y);
+    }
+
+    function resetBall() {
+      ball.x = canvas.width/2;
+      ball.y = canvas.height/2;
+      ball.velocityX = -ball.velocityX;
+      ball.speed = 5;
+    }
+
+    function collision(b, p) {
+      return (
+        b.x - b.radius < p.x + paddleWidth &&
+        b.x + b.radius > p.x &&
+        b.y < p.y + paddleHeight &&
+        b.y > p.y
+      );
+    }
+
+    function update() {
+      ball.x += ball.velocityX;
+      ball.y += ball.velocityY;
+
+      computer.y += (ball.y - (computer.y + paddleHeight/2)) * difficultyMultiplier;
+
+      if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+        ball.velocityY = -ball.velocityY;
+      }
+
+      let currentPlayer = (ball.x < canvas.width/2) ? player : computer;
+
+      if (collision(ball, currentPlayer)) {
+        let collidePoint = (ball.y - (currentPlayer.y + paddleHeight/2)) / (paddleHeight/2);
+        let angleRad = (Math.PI/4) * collidePoint;
+        let direction = (ball.x < canvas.width/2) ? 1 : -1;
+
+        ball.velocityX = direction * ball.speed * Math.cos(angleRad);
+        ball.velocityY = ball.speed * Math.sin(angleRad);
+        ball.speed += 0.2;
+      }
+
+      if (ball.x - ball.radius < 0) {
+        computer.score++;
+        resetBall();
+      } else if (ball.x + ball.radius > canvas.width) {
+        player.score++;
+        resetBall();
+      }
+
+      scoreboard.textContent = `Player: ${player.score} | Computer: ${computer.score}`;
+
+      if (player.score === winningScore || computer.score === winningScore) {
+        clearInterval(gameInterval);
+        let winner = player.score === winningScore ? "Player" : "Computer";
+        winnerDiv.innerHTML = `<strong>${winner} wins!</strong><br><button onclick="restart()">Play Again</button>`;
+      }
+    }
+
+    function render() {
+      drawRect(0, 0, canvas.width, canvas.height, "#001f3f");
+      drawRect(player.x, player.y, paddleWidth, paddleHeight, "#4da6ff");
+      drawRect(computer.x, computer.y, paddleWidth, paddleHeight, "#4da6ff");
+      drawCircle(ball.x, ball.y, ball.radius, "#cce6ff");
+    }
+
+    function gameLoop() {
+      update();
+      render();
+    }
+
+    function startGame(difficulty) {
+      document.getElementById("menu").style.display = "none";
+      initGame(difficulty);
+      canvas.addEventListener("mousemove", (evt) => {
+        let rect = canvas.getBoundingClientRect();
+        player.y = evt.clientY - rect.top - paddleHeight/2;
+      });
+      gameInterval = setInterval(gameLoop, 1000/60);
+    }
+
+    function restart() {
+      document.getElementById("menu").style.display = "block";
+      canvas.style.display = "none";
+      winnerDiv.innerHTML = "";
+    }
+  </script>
+</body>
+</html>
